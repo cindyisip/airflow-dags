@@ -50,7 +50,7 @@ def _extract_userposts(**context):
 
 def _process_user_posts(**context):
     try:
-        stream_name = "user-posts-data-stream"    
+        stream_name = "dea11-dev-west1-kinesis-user-post-data-stream-01"    
         user_posts = context['task_instance'].xcom_pull(task_ids='extract_userposts', key='user_posts')
         new_api_user_id = int(Variable.get("api_user_id", default=1))
         logger.info(f'Retrieved {len(user_posts) if user_posts else 0} posts from XCom')
