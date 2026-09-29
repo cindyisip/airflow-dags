@@ -5,8 +5,9 @@ import requests
 import boto3
 
 from airflow import DAG
-from airflow.models import Variable
-from airflow.operators.python import PythonOperator
+# Updated to modern Airflow 3 SDK imports to eliminate deprecation warnings
+from airflow.sdk import Variable
+from airflow.providers.standard.operators.python import PythonOperator
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ kinesis_client = boto3.client('kinesis')
 ## Setting up incremental user id for next call
 def _set_api_user_id(**context):
     try:
-        current_id = int(Variable.get("api_user_id", default_var=-1))
+        current_id = int(Variable.get("api_user_id", default=-1))
         logger.info(f'Current api_user_id:: {current_id}')
         
         if current_id == -1 or current_id >= 10:
@@ -24,7 +25,8 @@ def _set_api_user_id(**context):
         else:
             next_id = current_id + 1
             
-        Variable.set(key="api_user_id", value=next_id) 
+        # Airflow 3 / Pydantic requires value to be a string
+        Variable.set(key="api_user_id", value=str(next_id)) 
         return f"Latest api user id {next_id} set successfully"
     except Exception as e:
         logger.error(f'ERROR WHILE SETTING UP userId param value:: {e}')
@@ -32,7 +34,7 @@ def _set_api_user_id(**context):
 
 def _extract_userposts(**context):
     try:
-        new_api_user_id = int(Variable.get("api_user_id", default_var=1))
+        new_api_user_id = int(Variable.get("api_user_id", default=1))
         logger.info(f'Fetching posts for new_api_user_id:: {new_api_user_id}')
         
         response = requests.get(f'{api_base_url}/posts?userId={new_api_user_id}')
@@ -50,7 +52,7 @@ def _process_user_posts(**context):
     try:
         stream_name = "user-posts-data-stream"    
         user_posts = context['task_instance'].xcom_pull(task_ids='extract_userposts', key='user_posts')
-        new_api_user_id = int(Variable.get("api_user_id", default_var=1))
+        new_api_user_id = int(Variable.get("api_user_id", default=1))
         logger.info(f'Retrieved {len(user_posts) if user_posts else 0} posts from XCom')
 
         if not user_posts:
